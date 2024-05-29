@@ -1,0 +1,243 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+
+class Program
+{
+    public static GameManager gameManager;
+
+    static void Main(string[] args)
+    {
+        Console.WriteLine("Bem-vindo ao jogo Pedra, Papel, Tesoura!");
+        bool SairGame = false;
+
+        while (!SairGame)
+        {
+            Console.WriteLine("\nEscolha uma opção:");
+            Console.WriteLine("■ [1] Iniciar jogo");
+            Console.WriteLine("■ [2] Exibir resumo");
+            Console.WriteLine("■ [3] Sair");
+
+            string escolha = Console.ReadLine();
+
+            switch (escolha)
+            {
+                case "1":
+                    IniciarGame();
+                    break;
+                case "2":
+                    ExibirResumo();
+                    break;
+                case "3":
+                    SairGame = true;
+                    Console.WriteLine("Deseja salvar o jogo?");
+                    escolha = Console.ReadLine();
+                    if (escolha == "Sim")
+                    {
+                        SaveHandler.SaveAsText(gameManager.saveData);
+                    }
+                    else if (escolha == "Não")
+                    {
+
+                    }
+                    Console.WriteLine("Até mais! Volte em breve");
+                    break;
+                default:
+                    Console.WriteLine("Opção inválida. Por favor, escolha uma opção válida.");
+                    break;
+            }
+        }
+    }
+
+    static void IniciarGame()
+    {
+        Console.WriteLine("\nIniciando jogo...");
+        Console.Write("Por favor, insira seu nome: ");
+        string nomeJogador = Console.ReadLine();
+        Console.WriteLine($"\nOlá, {nomeJogador}! Seja bem vinde");
+
+        gameManager = new GameManager(nomeJogador);
+        int turnCount = 0;
+        while (gameManager.playerPoints < 3 && gameManager.botPoints < 3)
+        {
+            turnCount++;
+            Console.WriteLine("\nEscolha sua jogada:");
+            Console.WriteLine("0 - Pedra");
+            Console.WriteLine("1 - Papel");
+            Console.WriteLine("2 - Tesoura");
+
+            int escolhaPlayer;
+
+            while (true)
+            {
+                if (int.TryParse(Console.ReadLine(), out escolhaPlayer))
+                {
+                    if (escolhaPlayer >= 0 && escolhaPlayer <= 2)
+                    {
+                        break;
+                    }
+                }
+
+                Console.WriteLine("Opção inválida. Por favor, escolha uma opção válida (0, 1 ou 2).");
+            }
+
+            gameManager.PlayTurn(escolhaPlayer);
+        }
+
+        SaveHandler.SaveAsText(gameManager.saveData);
+    }
+    static void ExibirResumo()
+    {
+        Console.WriteLine("\nExibindo resumo...");
+        SaveHandler.LoadAndDebugText();
+    }
+}
+
+public enum PlayType
+{
+    Pedra,
+    Papel,
+    Tesoura
+}
+
+public static class SaveHandler
+{
+    private const string savePath = "save.txt";
+
+    public static void SaveAsText(SaveData saveData)
+    {
+        using (StreamWriter writer = new StreamWriter(savePath))
+        {
+            writer.WriteLine($"Player name: {saveData.playerName}");
+            writer.WriteLine($"Suas vitórias: {saveData.currentVictory}");
+            writer.WriteLine("Plays:");
+            foreach (var turn in saveData.turns)
+            {
+                writer.WriteLine($"Jogadas: {turn.Player}, Play: {turn.PlayType}");
+            }
+        }
+        Console.WriteLine("Dados salvos em formato de texto com sucesso!");
+    }
+
+    public static void LoadAndDebugText()
+    {
+        if (File.Exists(savePath))
+        {
+            using (StreamReader reader = new StreamReader(savePath))
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    Console.WriteLine(line);
+                }
+            }
+        }
+        else
+        {
+            Console.WriteLine("Arquivo de texto salvo não encontrado.");
+        }
+    }
+}
+
+public class PlayTurn
+{
+    public string Player { get; private set; }
+    public PlayType PlayType { get; private set; }
+
+    public PlayTurn(string player, PlayType playType)
+    {
+        Player = player;
+        PlayType = playType;
+    }
+}
+
+public class SaveData
+{
+    public string playerName;
+    public List<PlayTurn> turns = new List<PlayTurn>();
+    public int currentVictory;
+
+    public SaveData(string playerName)
+    {
+        this.playerName = playerName;
+    }
+}
+
+public class GameManager
+{
+    public readonly SaveData saveData;
+    private const string botName = "Cleito";
+    public int playerPoints = 0;
+    public int botPoints = 0;
+
+    public GameManager(string playerName)
+    {
+        saveData = new SaveData(playerName);
+    }
+
+    public void PlayTurn(int playTypeIndex)
+    {
+        PlayType playerPlay = PlayAsPlayer(playTypeIndex);
+        PlayType botPlay = PlayAsBot();
+
+        if (playerPlay == botPlay)
+        {
+            Console.WriteLine("Empate!");
+        }
+        else if (playerPlay == PlayType.Pedra && botPlay == PlayType.Papel)
+        {
+            botPoints = botPoints + 1;
+            Console.WriteLine("Vitória do Cleito");
+        }
+        else if (playerPlay == PlayType.Papel && botPlay == PlayType.Pedra)
+        {
+            Console.WriteLine("Vitória do Player");
+            playerPoints = playerPoints + 1;
+            saveData.currentVictory++;
+        }
+        else if (playerPlay == PlayType.Tesoura && botPlay == PlayType.Pedra)
+        {
+            Console.WriteLine("Vitória do Cleito");
+            botPoints = botPoints + 1;
+        }
+        else if (playerPlay == PlayType.Pedra && botPlay == PlayType.Tesoura)
+        {
+            Console.WriteLine("Vitória do Player");
+            playerPoints = playerPoints + 1;
+            saveData.currentVictory++;
+        }
+        else if (playerPlay == PlayType.Papel && botPlay == PlayType.Tesoura)
+        {
+            Console.WriteLine("Vitória do Cleito");
+            botPoints = botPoints + 1;
+        }
+        else if (playerPlay == PlayType.Tesoura && botPlay == PlayType.Papel)
+        {
+            Console.WriteLine("Vitória do Player");
+            playerPoints = playerPoints + 1;
+            saveData.currentVictory++;
+        }
+    }
+
+    private PlayType PlayAsBot()
+    {
+        Random random = new Random();
+        PlayType playType = (PlayType)random.Next(0, 3);
+        Play(botName, playType);
+        return playType;
+    }
+
+    private PlayType PlayAsPlayer(int playTypeIndex)
+    {
+        PlayType playType = (PlayType)playTypeIndex;
+        Play(saveData.playerName, playType);
+        return playType;
+    }
+
+    public void Play(string player, PlayType playType)
+    {
+        PlayTurn currentTurn = new PlayTurn(player, playType);
+        saveData.turns.Add(currentTurn);
+        Console.WriteLine($"{player}: {playType}");
+    }
+}
